@@ -1,8 +1,9 @@
 name:                tax
 version:             0.1.0.0
 synopsis:            Types and combinators for taxes
--- description:
-homepage:            https://github.com/frasertweedale/hs-tax
+description:
+  This library provides combinators for constructing taxes.  It is based on
+  the <https://hackage.haskell.org/package/dollaridoos dollaridoos> library.
 license:             AGPL-3
 license-file:        LICENSE
 author:              Fraser Tweedale
@@ -10,8 +11,15 @@ maintainer:          frase@frase.id.au
 copyright:           Copyright (C) 2018 Fraser Tweedale
 category:            Finance
 build-type:          Simple
-extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
+tested-with:
+  GHC==7.10.3, GHC==8.0.2, GHC==8.2.1, GHC==8.4.3
+
+homepage:            https://github.com/frasertweedale/hs-tax
+bug-reports:         https://github.com/frasertweedale/hs-tax/issues
+source-repository head
+  type: git
+  location: https://github.com/frasertweedale/hs-tax.git
 
 library
   exposed-modules:
@@ -19,7 +27,7 @@ library
   -- other-modules:
   -- other-extensions:
   build-depends:
-    base >= 4.8
+    base >= 4.8 && < 5
     , dollaridoos >= 0.1
     , semigroups >= 0.16
   hs-source-dirs:      src
