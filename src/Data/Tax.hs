@@ -46,7 +46,6 @@ Marginal tax rates can be constructed using the 'above' combinator,
 which taxes the amount above a given threshold at a flat rate.
 
 @
-individualIncomeTax :: (Fractional a, Ord a) => Tax a
 individualIncomeTax =
   'above' (review money 18200) 0.19
   <> 'above' (review money 37000) (0.325 - 0.19)
@@ -72,9 +71,9 @@ to some lower flat rate.  The 'threshold'' and 'lesserOf'
 combinators can be used to construct this tax:
 
 @
-medicareLevy :: (Fractional a, Ord a) => Tax a
-medicareLevy = 'threshold'' l ('lesserOf' ('above' l 0.1) ('flat' 0.02))
-  where l = review money 21656
+medicareLevy =
+  'threshold'' l ('lesserOf' ('above' l 0.1) ('flat' 0.02))
+    where l = review money 21656
 @
 
 -}
@@ -91,7 +90,6 @@ module Data.Tax
   , lesserOf
   , greaterOf
   , limit
-  , adjust
   , effective
 
   -- * Miscellanea
@@ -101,6 +99,7 @@ module Data.Tax
   ) where
 
 import Data.Monoid (Monoid(..))
+import Data.Profunctor (Profunctor(..))
 import Data.Semigroup (Semigroup(..))
 
 import Data.Money
@@ -112,57 +111,58 @@ import Data.Money
 --
 -- Taxes form a monoid where the identity is a tax of 0%
 --
-newtype Tax a = Tax { getTax :: Money a -> Money a }
+-- Taxes are a profunctor, making it trivial to perform simple
+-- transformations of the input and/or output (e.g. rounding
+-- down to whole dollars).
+--
+newtype Tax b a = Tax { getTax :: Money b -> Money a }
 
-instance Num a => Semigroup (Tax a) where
+instance Num a => Semigroup (Tax b a) where
   Tax f <> Tax g = Tax (\x -> f x <> g x)
 
-instance Num a => Monoid (Tax a) where
+instance Num a => Monoid (Tax b a) where
   mempty = lump mempty
   mappend = (<>)
 
+instance Functor (Tax b) where
+  fmap f a = Tax (fmap f . getTax a)
+
+instance Profunctor Tax where
+  rmap = fmap
+  lmap f a = Tax (getTax a . fmap f)
+
 -- | Tax the amount exceeding the threshold at a flat rate.
 --
--- You can use @above@ to construct marginal taxes:
---
--- @
--- marginal =
---   above 18200 0.19
---   <> above 37000 (0.325 - 0.19)
---   <> above 87000 (0.37 - 0.325)
---   <> above 180000 (0.45 - 0.37)
--- @
---
-above :: (Num a, Ord a) => Money a -> a -> Tax a
+above :: (Num a, Ord a) => Money a -> a -> Tax a a
 above l = above' l . flat
 
 -- | Tax the amount exceeding the threshold
-above' :: (Num a, Ord a) => Money a -> Tax a -> Tax a
+above' :: (Num a, Num b, Ord b) => Money b -> Tax b a -> Tax b a
 above' l tax = Tax (\x -> getTax tax (max (x $-$ l) mempty))
 
 -- | A lump-sum tax; a fixed amount, not affected by the size of the input
 --
-lump :: Money a -> Tax a
+lump :: Money a -> Tax b a
 lump = Tax . const
 
 -- | Construct a flat rate tax with no threshold
-flat :: (Num a) => a -> Tax a
+flat :: (Num a) => a -> Tax a a
 flat = Tax . (*$)
 
 -- | Tax full amount at flat rate if input >= threshold
-threshold :: (Num a, Ord a) => Money a -> a -> Tax a
+threshold :: (Num a, Ord a) => Money a -> a -> Tax a a
 threshold l = threshold' l . flat
 
 -- | Levy the tax if input >= threshold, otherwise don't
-threshold' :: (Num a, Ord a) => Money a -> Tax a -> Tax a
+threshold' :: (Num a, Ord b) => Money b -> Tax b a -> Tax b a
 threshold' l tax = Tax (\x -> if x >= l then getTax tax x else mempty)
 
 -- | Levy the lesser of two taxes
-lesserOf :: (Ord a) => Tax a -> Tax a -> Tax a
+lesserOf :: (Ord a) => Tax b a -> Tax b a -> Tax b a
 lesserOf t1 t2 = Tax (\x -> min (getTax t1 x) (getTax t2 x))
 
 -- | Levy the greater of two taxes
-greaterOf :: (Ord a) => Tax a -> Tax a -> Tax a
+greaterOf :: (Ord a) => Tax b a -> Tax b a -> Tax b a
 greaterOf t1 t2 = Tax (\x -> max (getTax t1 x) (getTax t2 x))
 
 -- | Limit the tax payable to the given amount
@@ -171,14 +171,10 @@ greaterOf t1 t2 = Tax (\x -> max (getTax t1 x) (getTax t2 x))
 -- repayment to the balance of the loan, or ensuring a
 -- (negative) tax offset does not become a (positive) tax.
 --
-limit :: (Ord a) => Money a -> Tax a -> Tax a
+limit :: (Ord a) => Money a -> Tax b a -> Tax b a
 limit = lesserOf . lump
-
--- | Multiply a tax by the given ratio
-adjust :: (Num a) => a -> Tax a -> Tax a
-adjust r tax = Tax (\x -> r *$ getTax tax x)
 
 -- | Given a tax and an amount construct the effective flat tax rate
 --
-effective :: (Fractional a) => Money a -> Tax a -> Tax a
+effective :: (Fractional a) => Money a -> Tax a a -> Tax a a
 effective x tax = flat (getTax tax x $/$ x)
