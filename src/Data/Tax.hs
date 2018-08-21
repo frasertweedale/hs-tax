@@ -77,6 +77,9 @@ medicareLevy =
 @
 
 -}
+
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Data.Tax
   (
   -- * Constructing taxes
@@ -95,6 +98,7 @@ module Data.Tax
   -- * Miscellanea
   , Semigroup(..)
   , Monoid(..)
+  , Profunctor(..)
   , module Data.Money
   ) where
 
@@ -115,46 +119,33 @@ import Data.Money
 -- transformations of the input and/or output (e.g. rounding
 -- down to whole dollars).
 --
-newtype Tax b a = Tax { getTax :: Money b -> Money a }
-
-instance Num a => Semigroup (Tax b a) where
-  Tax f <> Tax g = Tax (\x -> f x <> g x)
-
-instance Num a => Monoid (Tax b a) where
-  mempty = lump mempty
-  mappend = (<>)
-
-instance Functor (Tax b) where
-  fmap f a = Tax (fmap f . getTax a)
-
-instance Profunctor Tax where
-  rmap = fmap
-  lmap f a = Tax (getTax a . fmap f)
+newtype Tax b a = Tax { getTax :: b -> a }
+  deriving (Semigroup, Monoid, Functor, Profunctor)
 
 -- | Tax the amount exceeding the threshold at a flat rate.
 --
-above :: (Num a, Ord a) => Money a -> a -> Tax a a
+above :: (Num a, Ord a) => Money a -> a -> Tax (Money a) (Money a)
 above l = above' l . flat
 
 -- | Tax the amount exceeding the threshold
-above' :: (Num a, Num b, Ord b) => Money b -> Tax b a -> Tax b a
-above' l tax = Tax (\x -> getTax tax (max (x $-$ l) mempty))
+above' :: (Num b, Ord b) => Money b -> Tax (Money b) a -> Tax (Money b) a
+above' l = lmap (\x -> max (x $-$ l) mempty)
 
--- | A lump-sum tax; a fixed amount, not affected by the size of the input
+-- | A lump-sum tax; a fixed value, not affected by the size of the input
 --
-lump :: Money a -> Tax b a
+lump :: a -> Tax b a
 lump = Tax . const
 
 -- | Construct a flat rate tax with no threshold
-flat :: (Num a) => a -> Tax a a
+flat :: (Num a) => a -> Tax (Money a) (Money a)
 flat = Tax . (*$)
 
 -- | Tax full amount at flat rate if input >= threshold
-threshold :: (Num a, Ord a) => Money a -> a -> Tax a a
+threshold :: (Num a, Ord a) => Money a -> a -> Tax (Money a) (Money a)
 threshold l = threshold' l . flat
 
 -- | Levy the tax if input >= threshold, otherwise don't
-threshold' :: (Num a, Ord b) => Money b -> Tax b a -> Tax b a
+threshold' :: (Ord b, Monoid a) => b -> Tax b a -> Tax b a
 threshold' l tax = Tax (\x -> if x >= l then getTax tax x else mempty)
 
 -- | Levy the lesser of two taxes
@@ -171,10 +162,12 @@ greaterOf t1 t2 = Tax (\x -> max (getTax t1 x) (getTax t2 x))
 -- repayment to the balance of the loan, or ensuring a
 -- (negative) tax offset does not become a (positive) tax.
 --
-limit :: (Ord a) => Money a -> Tax b a -> Tax b a
+limit :: (Ord a) => a -> Tax b a -> Tax b a
 limit = lesserOf . lump
 
 -- | Given a tax and an amount construct the effective flat tax rate
 --
-effective :: (Fractional a) => Money a -> Tax a a -> Tax a a
+effective
+  :: (Fractional a)
+  => Money a -> Tax (Money a) (Money a) -> Tax (Money a) (Money a)
 effective x tax = flat (getTax tax x $/$ x)
