@@ -76,6 +76,23 @@ medicareLevy =
     where l = review money 21656
 @
 
+Although some of the combinators deal directory with 'Money', a
+'Tax' can be defined for other types.  For example, you can tax a
+person a certain number of days labour, based on their age.
+
+@
+data Sex = M | F
+newtype Years = Years Int
+newtype Days = Days Int
+data Person = Person Years Sex
+
+corvée :: Tax Person Days
+corvée = Tax f
+  where
+  f (Person (Years age) sex) = Days $ if age >= 18 && age <= maxAge sex then 10 else 0
+  maxAge sex = case sex of M -> 45 ; F -> 35
+@
+
 -}
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -119,7 +136,7 @@ import Data.Money
 -- transformations of the input and/or output (e.g. rounding
 -- down to whole dollars).
 --
-newtype Tax b a = Tax { getTax :: b -> a }
+newtype Tax a b = Tax { getTax :: a -> b }
   deriving (Semigroup, Monoid, Functor, Profunctor)
 
 -- | Tax the amount exceeding the threshold at a flat rate.
