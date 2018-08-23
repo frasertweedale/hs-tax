@@ -101,6 +101,7 @@ module Data.Tax
   (
   -- * Constructing taxes
     Tax(..)
+  , MoneyTax
   , lump
   , flat
   , threshold
@@ -140,6 +141,9 @@ import Data.Money
 --
 newtype Tax a b = Tax { getTax :: a -> b }
   deriving (Semigroup, Monoid, Functor, Profunctor)
+
+-- | Convenience synonym for working with 'Money'
+type MoneyTax a = Tax (Money a) (Money a)
 
 -- | Tax the amount exceeding the threshold at a flat rate.
 --
