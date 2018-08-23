@@ -105,8 +105,10 @@ module Data.Tax
   , flat
   , threshold
   , threshold'
+  , thresholds
   , above
   , above'
+  , marginal
   , lesserOf
   , greaterOf
   , limit
@@ -148,6 +150,14 @@ above l = above' l . flat
 above' :: (Num b, Ord b) => Money b -> Tax (Money b) a -> Tax (Money b) a
 above' l = lmap (\x -> max (x $-$ l) mempty)
 
+-- | Convert a @[(threshold, rate)]@ into a marginal tax.
+-- The rates are /cumulative/, i.e. the top marginal rate is the
+-- sum of the rates that apply for a given input.
+--
+marginal :: (Fractional a, Ord a) => [(Money a, a)] -> Tax (Money a) (Money a)
+marginal = foldMap (uncurry above)
+
+
 -- | A lump-sum tax; a fixed value, not affected by the size of the input
 --
 lump :: a -> Tax b a
@@ -164,6 +174,19 @@ threshold l = threshold' l . flat
 -- | Levy the tax if input >= threshold, otherwise don't
 threshold' :: (Ord b, Monoid a) => b -> Tax b a -> Tax b a
 threshold' l tax = Tax (\x -> if x >= l then getTax tax x else mempty)
+
+-- | Convert a @[(threshold, rate)]@ into a flat tax whose rate is
+-- the sum of the rates that apply for a given input.  The rates
+-- are /cumulative/.  For example, if you want to tax people earning
+-- >$30,000 20%, and people earning >$50,000 30%, you only tax an
+-- extra 10% at 50000:
+--
+-- @
+-- tax = thresholds [(30000, .2), (50000, .1)]
+-- @
+--
+thresholds :: (Fractional a, Ord a) => [(Money a, a)] -> Tax (Money a) (Money a)
+thresholds = foldMap (uncurry threshold)
 
 -- | Levy the lesser of two taxes
 lesserOf :: (Ord a) => Tax b a -> Tax b a -> Tax b a
