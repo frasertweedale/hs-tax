@@ -1,5 +1,5 @@
 name:                tax
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Types and combinators for taxes
 description:
   This library provides combinators for constructing taxes.  It is based on
