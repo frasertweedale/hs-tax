@@ -158,7 +158,7 @@ above' l = lmap (\x -> max (x $-$ l) mempty)
 -- The rates are /cumulative/, i.e. the top marginal rate is the
 -- sum of the rates that apply for a given input.
 --
-marginal :: (Fractional a, Ord a) => [(Money a, a)] -> Tax (Money a) (Money a)
+marginal :: (Num a, Ord a) => [(Money a, a)] -> Tax (Money a) (Money a)
 marginal = foldMap (uncurry above)
 
 
@@ -189,7 +189,7 @@ threshold' l tax = Tax (\x -> if x >= l then getTax tax x else mempty)
 -- tax = thresholds [(30000, .2), (50000, .1)]
 -- @
 --
-thresholds :: (Fractional a, Ord a) => [(Money a, a)] -> Tax (Money a) (Money a)
+thresholds :: (Num a, Ord a) => [(Money a, a)] -> Tax (Money a) (Money a)
 thresholds = foldMap (uncurry threshold)
 
 -- | Levy the lesser of two taxes
