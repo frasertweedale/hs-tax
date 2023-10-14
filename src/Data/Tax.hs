@@ -51,7 +51,6 @@ module Data.Tax
   , Profunctor(..)
   ) where
 
-import Data.Monoid (Monoid(..))
 import Data.Profunctor (Profunctor(..))
 import Data.Semigroup (Semigroup(..))
 
